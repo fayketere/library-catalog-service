@@ -1,0 +1,14 @@
+{
+  "name": "library-catalog-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mongoose schemas and seed data for a library catalog",
+  "main": "seed.js",
+  "scripts": {
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "mongoose": "^8.9.5"
+  }
+}
