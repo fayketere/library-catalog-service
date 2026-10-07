@@ -1,40 +1,109 @@
 # Library Catalog Service
 
-Mongoose models and a repeatable seed script for a small library catalog.
+A JSON REST API backed by the existing Mongoose `Book` and `Genre` models.
 
 ## Setup
 
 1. Install dependencies with `npm install`.
-2. Copy `.env.example` to `.env` and set `MONGODB_URI` to your MongoDB connection string.
-3. Run `npm run seed` to replace the current `books` and `genres` data with the sample catalog.
+2. Copy `.env.example` to `.env` and set `MONGODB_URI` to your MongoDB connection string. `PORT` is optional and defaults to `3000`.
+3. Start the API with `npm start` (or `npm run dev` for Node's watch mode).
+4. Optionally load the sample catalog with `npm run seed`.
 
-The seed operation deletes existing book documents before genre documents, then creates four genres and sixteen books. Running it again produces the same catalog rather than appending duplicates. Keep a backup if the target collections contain data you need; seeding replaces it.
+Routes are available at `/genres` and `/books`. The same routes are also mounted under `/api/v1` for clients using a versioned prefix.
 
-## Schema Design
+## Genre endpoints
 
-| Model field | Storage | Reason |
+| Method | Path | Behavior |
 | --- | --- | --- |
-| `Book.title` | Direct scalar field on `Book` | The title belongs to this catalog entry and is commonly read with the book. |
-| `Book.author` | Direct scalar field on `Book` | The displayed author belongs to the book entry and does not need an independently managed author document. |
-| `Book.isbn` | Direct scalar field on `Book` | It identifies an edition and is required and unique so duplicate catalog entries for the same ISBN are rejected. |
-| `Book.description` | Direct scalar field on `Book` | Description text is specific to this catalog entry and is read with its title and cover. |
-| `Book.coverImage` | Direct scalar field on `Book` | The image URL is presentation data for this particular book entry. |
-| `Book.totalCopies` | Direct scalar field on `Book` | This inventory count belongs to the book entry and is stored as a non-negative number. |
-| `Book.availableCopies` | Direct scalar field on `Book` | Availability is queried with the book and must stay between zero and `totalCopies`. |
-| `Book.genre` | ObjectId reference to `Genre` (`ref: 'Genre'`) | Genres are shared by many books; storing one reference avoids duplicating genre names and allows population of current genre details. |
-| `Genre.name` | Direct scalar field on `Genre` | This is the user-facing label, kept once on the shared genre document; it is required and unique. |
-| `Genre.slug` | Direct scalar field on `Genre` | A required, unique, lowercase identifier provides a stable URL- and query-friendly value separate from the display label. |
+| `GET` | `/genres` | List genres |
+| `GET` | `/genres/:id` | Get a genre (`404` if missing) |
+| `POST` | `/genres` | Create a genre (`201`) |
+| `PUT` | `/genres/:id` | Replace a genre (`200`, `404` if missing) |
+| `DELETE` | `/genres/:id` | Delete a genre (`204`, `404` if missing, `409` if books still reference it) |
 
-There are no embedded subdocuments in this schema. Book-specific values stay on `Book`; shared genre data is normalized into `Genre` and linked through the ObjectId reference.
+Create and update payloads require non-empty string fields:
 
-## Seeding
+```json
+{
+  "name": "Science Fiction",
+  "slug": "science-fiction"
+}
+```
 
-The seed script connects using `MONGODB_URI`, clears existing books and genres, inserts four genres and sixteen books with ObjectId references, and disconnects from MongoDB. It is safe to rerun because it replaces the sample catalog instead of appending duplicates.
+A genre cannot be deleted while one or more books reference it. Delete or reassign those books first; this protects referential integrity.
 
-## Data Requirements
+## Book endpoints
 
-- 4 genres
-- 16 books
-- Unique ISBN values
-- Genre references using ObjectId
-- `availableCopies` never exceeds `totalCopies`
+| Method | Path | Behavior |
+| --- | --- | --- |
+| `GET` | `/books` | List, filter, search, and paginate books |
+| `GET` | `/books/:id` | Get a book (`404` if missing) |
+| `POST` | `/books` | Create a book (`201`) |
+| `PUT` | `/books/:id` | Replace a book (`200`, `404` if missing) |
+| `DELETE` | `/books/:id` | Delete a book (`204`, `404` if missing) |
+
+Book create and update payloads require all model fields:
+
+```json
+{
+  "title": "Dune",
+  "author": "Frank Herbert",
+  "isbn": "9780441172719",
+  "description": "A young heir becomes entangled in the politics and ecology of a desert planet.",
+  "coverImage": "https://covers.openlibrary.org/b/isbn/9780441172719-L.jpg",
+  "totalCopies": 8,
+  "availableCopies": 5,
+  "genre": "<existing-genre-object-id>"
+}
+```
+
+The genre must be an existing Genre ObjectId. Copy counts must be non-negative integers, and `availableCopies` cannot exceed `totalCopies`.
+
+`GET /books` accepts the following optional query parameters:
+
+| Parameter | Description | Default |
+| --- | --- | --- |
+| `genre` | Filter by a valid Genre ObjectId | — |
+| `search` | Case-insensitive substring match against title or author | — |
+| `page` | Positive, one-based page number | `1` |
+| `limit` | Positive page size, at most `100` | `10` |
+
+The filters are combinable and are applied before pagination:
+
+```text
+GET /books?genre=<genre-id>&search=dune&page=2&limit=5
+```
+
+List responses have a `data` array and pagination metadata:
+
+```json
+{
+  "data": [],
+  "pagination": {
+    "page": 2,
+    "limit": 5,
+    "total": 7,
+    "totalPages": 2
+  }
+}
+```
+
+## Errors
+
+Errors are JSON and do not expose stack traces or raw Mongoose errors. Validation errors return `400` with a field-specific `errors` array, missing resources return `404`, and deleting a referenced genre returns `409`. Malformed JSON returns `400`.
+
+## Postman
+
+Import [`postman/library-catalog.postman_collection.json`](./postman/library-catalog.postman_collection.json). The collection has requests for every genre and book endpoint, a combined-filter request, and a saved `400` validation-error example. The default `baseUrl` is `http://localhost:3000`.
+
+## Tests
+
+Run the API tests with `npm test`.
+
+## Existing data model and seed catalog
+
+Book-specific values (`title`, `author`, `isbn`, `description`, `coverImage`, `totalCopies`, and `availableCopies`) are stored directly on `Book`. A book references a shared Genre by ObjectId. `Genre` keeps the required, unique `name` and lowercase `slug`. There are no embedded subdocuments.
+
+The repeatable seed script replaces the existing `books` and `genres` data with four genres and sixteen sample books. It deletes books before genres, then inserts the replacement data and disconnects from MongoDB. Back up any data that must be retained before running `npm run seed`.
+
+The sample data maintains unique ISBN values and genre ObjectId references; `availableCopies` does not exceed `totalCopies`.

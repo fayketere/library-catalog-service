@@ -1,0 +1,215 @@
+{
+  "info": {
+    "_postman_id": "6376a520-18bd-4f52-b814-2e91206a03b4",
+    "name": "Library Catalog API",
+    "description": "Full Genre and Book CRUD, combined book filtering, and a saved 400 validation response.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "genreId", "value": "" },
+    { "key": "bookId", "value": "" },
+    { "key": "genreName", "value": "" },
+    { "key": "genreSlug", "value": "" },
+    { "key": "isbn", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "List genres",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/genres"
+      },
+      "response": []
+    },
+    {
+      "name": "Create genre",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const suffix = Date.now().toString();",
+              "pm.collectionVariables.set('genreName', `Science Fiction ${suffix}`);",
+              "pm.collectionVariables.set('genreSlug', `science-fiction-${suffix}`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 201) pm.collectionVariables.set('genreId', pm.response.json()._id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{genreName}}\",\n  \"slug\": \"{{genreSlug}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/genres"
+      },
+      "response": []
+    },
+    {
+      "name": "Get genre",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/genres/{{genreId}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Update genre",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated Science Fiction\",\n  \"slug\": \"updated-science-fiction\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/genres/{{genreId}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Create book",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('isbn', `978${Date.now().toString().slice(-9)}${Math.floor(Math.random() * 10)}`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 201) pm.collectionVariables.set('bookId', pm.response.json()._id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Dune\",\n  \"author\": \"Frank Herbert\",\n  \"isbn\": \"{{isbn}}\",\n  \"description\": \"A young heir becomes entangled in the politics and ecology of a desert planet.\",\n  \"coverImage\": \"https://covers.openlibrary.org/b/isbn/9780441172719-L.jpg\",\n  \"totalCopies\": 8,\n  \"availableCopies\": 5,\n  \"genre\": \"{{genreId}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/books"
+      },
+      "response": []
+    },
+    {
+      "name": "List books with genre, search, and pagination",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/books?genre={{genreId}}&search=dune&page=1&limit=5",
+          "host": ["{{baseUrl}}"],
+          "path": ["books"],
+          "query": [
+            { "key": "genre", "value": "{{genreId}}" },
+            { "key": "search", "value": "dune" },
+            { "key": "page", "value": "1" },
+            { "key": "limit", "value": "5" }
+          ]
+        },
+        "response": []
+      }
+    },
+    {
+      "name": "Get book",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/books/{{bookId}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Update book",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Dune (Updated)\",\n  \"author\": \"Frank Herbert\",\n  \"isbn\": \"{{isbn}}\",\n  \"description\": \"Updated catalog description.\",\n  \"coverImage\": \"https://covers.openlibrary.org/b/isbn/9780441172719-L.jpg\",\n  \"totalCopies\": 8,\n  \"availableCopies\": 4,\n  \"genre\": \"{{genreId}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/books/{{bookId}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Delete book",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/books/{{bookId}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Delete genre",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/genres/{{genreId}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Create book (invalid input example)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/books"
+      },
+      "response": [
+        {
+          "name": "400 Validation failed",
+          "originalRequest": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/books"
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [{ "key": "Content-Type", "value": "application/json; charset=utf-8" }],
+          "cookie": [],
+          "responseTime": 1,
+          "body": "{\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    { \"field\": \"title\", \"message\": \"title is required\" },\n    { \"field\": \"author\", \"message\": \"author is required\" },\n    { \"field\": \"isbn\", \"message\": \"isbn is required\" },\n    { \"field\": \"description\", \"message\": \"description is required\" },\n    { \"field\": \"coverImage\", \"message\": \"coverImage is required\" },\n    { \"field\": \"totalCopies\", \"message\": \"totalCopies is required\" },\n    { \"field\": \"availableCopies\", \"message\": \"availableCopies is required\" },\n    { \"field\": \"genre\", \"message\": \"genre is required\" }\n  ]\n}"
+        }
+      ]
+    }
+  ]
+}

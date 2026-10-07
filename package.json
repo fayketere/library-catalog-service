@@ -2,13 +2,17 @@
   "name": "library-catalog-service",
   "version": "1.0.0",
   "private": true,
-  "description": "Mongoose schemas and seed data for a library catalog",
-  "main": "seed.js",
+  "description": "Mongoose-backed REST API for a library catalog",
+  "main": "app.js",
   "scripts": {
-    "seed": "node seed.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node seed.js",
+    "test": "node --test"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
+    "express": "^5.2.1",
     "mongoose": "^8.9.5"
   }
 }
