@@ -5,6 +5,7 @@ const test = require('node:test');
 const app = require('../app');
 const Book = require('../models/Book');
 const Genre = require('../models/Genre');
+const User = require('../models/User');
 
 const genreId = '64b000000000000000000001';
 const bookId = '64b000000000000000000002';
@@ -31,6 +32,25 @@ function query(value) {
       return Promise.resolve(value).then(resolve, reject);
     },
   };
+}
+
+async function loginLibrarian(t, baseUrl) {
+  const librarian = {
+    _id: { toString: () => '64b000000000000000000003' },
+    username: 'librarian',
+    email: 'librarian@library.test',
+    role: 'librarian',
+    comparePassword: async (password) => password === 'LibraryAdmin123!',
+  };
+  t.mock.method(User, 'findOne', () => ({ select: async () => librarian }));
+  t.mock.method(User, 'findById', async () => librarian);
+  const response = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: 'librarian', password: 'LibraryAdmin123!' }),
+  });
+  assert.equal(response.status, 200);
+  return response.headers.get('set-cookie').split(';', 1)[0];
 }
 
 test('genre and book routes validate inputs and support CRUD and combined filtering', async (t) => {
@@ -69,10 +89,11 @@ test('genre and book routes validate inputs and support CRUD and combined filter
   t.mock.method(Book, 'create', async (payload) => ({ _id: bookId, ...payload }));
   t.mock.method(Book, 'findByIdAndUpdate', async (_id, payload) => ({ _id: bookId, ...payload }));
   t.mock.method(Book, 'findByIdAndDelete', async () => book);
+  const librarianCookie = await loginLibrarian(t, baseUrl);
 
   const invalidBook = await fetch(`${baseUrl}/books`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie: librarianCookie },
     body: '{}',
   });
   assert.equal(invalidBook.status, 400);
@@ -118,15 +139,18 @@ test('genre and book routes validate inputs and support CRUD and combined filter
   assert.equal((await fetch(`${baseUrl}/books/${bookId}`)).status, 200);
   assert.equal((await fetch(`${baseUrl}/books`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie: librarianCookie },
     body: JSON.stringify(bookPayload),
   })).status, 201);
   assert.equal((await fetch(`${baseUrl}/books/${bookId}`, {
     method: 'PUT',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie: librarianCookie },
     body: JSON.stringify(bookPayload),
   })).status, 200);
-  assert.equal((await fetch(`${baseUrl}/books/${bookId}`, { method: 'DELETE' })).status, 204);
+  assert.equal((await fetch(`${baseUrl}/books/${bookId}`, {
+    method: 'DELETE',
+    headers: { cookie: librarianCookie },
+  })).status, 204);
 
   genreHasBooks = true;
   assert.equal((await fetch(`${baseUrl}/genres/${genreId}`, { method: 'DELETE' })).status, 409);
@@ -141,10 +165,11 @@ test('invalid genre references and malformed JSON return field-specific JSON err
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
   t.mock.method(Genre, 'exists', async () => null);
+  const librarianCookie = await loginLibrarian(t, baseUrl);
 
   const invalidGenre = await fetch(`${baseUrl}/books`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie: librarianCookie },
     body: JSON.stringify({
       title: 'Dune',
       author: 'Frank Herbert',
@@ -176,6 +201,7 @@ test('missing resources return 404 and invalid query and field types return 400'
   t.after(() => new Promise((resolve) => server.close(resolve)));
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
+  const librarianCookie = await loginLibrarian(t, baseUrl);
   t.mock.method(Genre, 'findById', async () => null);
   t.mock.method(Genre, 'findByIdAndUpdate', async () => null);
   t.mock.method(Genre, 'exists', async () => ({ _id: genreId }));
@@ -193,7 +219,7 @@ test('missing resources return 404 and invalid query and field types return 400'
   assert.equal((await fetch(`${baseUrl}/books/${bookId}`)).status, 404);
   assert.equal((await fetch(`${baseUrl}/books/${bookId}`, {
     method: 'PUT',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie: librarianCookie },
     body: JSON.stringify({
       title: book.title,
       author: book.author,
@@ -205,7 +231,10 @@ test('missing resources return 404 and invalid query and field types return 400'
       genre: genreId,
     }),
   })).status, 404);
-  assert.equal((await fetch(`${baseUrl}/books/${bookId}`, { method: 'DELETE' })).status, 404);
+  assert.equal((await fetch(`${baseUrl}/books/${bookId}`, {
+    method: 'DELETE',
+    headers: { cookie: librarianCookie },
+  })).status, 404);
 
   const invalidPagination = await fetch(`${baseUrl}/books?page=0`);
   assert.equal(invalidPagination.status, 400);

@@ -3,6 +3,14 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const Book = require('./models/Book');
 const Genre = require('./models/Genre');
+const User = require('./models/User');
+
+const librarian = {
+  username: 'librarian',
+  email: 'librarian@library.test',
+  password: 'LibraryAdmin123!',
+  role: 'librarian',
+};
 
 const genreData = [
   { name: 'Fantasy', slug: 'fantasy' },
@@ -40,6 +48,14 @@ async function seed() {
     await Book.deleteMany({});
     await Genre.deleteMany({});
 
+    let librarianAccount = await User.findOne({ email: librarian.email });
+    if (!librarianAccount) {
+      librarianAccount = new User(librarian);
+    } else {
+      Object.assign(librarianAccount, librarian);
+    }
+    await librarianAccount.save();
+
     const genres = await Genre.insertMany(genreData);
     const genreIds = Object.fromEntries(genres.map((genre) => [genre.slug, genre._id]));
     const books = bookData.map(({ genre, ...book }) => ({
@@ -48,7 +64,7 @@ async function seed() {
     }));
 
     await Book.insertMany(books);
-    console.log(`Seeded ${genres.length} genres and ${books.length} books.`);
+    console.log(`Seeded ${genres.length} genres, ${books.length} books, and the librarian account.`);
   } finally {
     await mongoose.disconnect();
   }

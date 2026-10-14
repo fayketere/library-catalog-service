@@ -1,6 +1,7 @@
 const express = require('express');
 const Book = require('../models/Book');
 const Genre = require('../models/Genre');
+const { requireAuth, requireRole } = require('../middleware/auth');
 const {
   parseBookQuery,
   validateBookPayload,
@@ -51,7 +52,7 @@ router.get('/:id', async (req, res) => {
   res.status(200).json(book);
 });
 
-router.post('/', validatePayload(validateBookPayload), async (req, res) => {
+router.post('/', requireAuth, requireRole('librarian'), validatePayload(validateBookPayload), async (req, res) => {
   if (!await Genre.exists({ _id: req.body.genre })) {
     res.status(400).json({
       message: 'Validation failed',
@@ -64,7 +65,7 @@ router.post('/', validatePayload(validateBookPayload), async (req, res) => {
   res.status(201).json(book);
 });
 
-router.put('/:id', validatePayload(validateBookPayload), async (req, res) => {
+router.put('/:id', requireAuth, requireRole('librarian'), validatePayload(validateBookPayload), async (req, res) => {
   if (!await Genre.exists({ _id: req.body.genre })) {
     res.status(400).json({
       message: 'Validation failed',
@@ -85,7 +86,7 @@ router.put('/:id', validatePayload(validateBookPayload), async (req, res) => {
   res.status(200).json(book);
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, requireRole('librarian'), async (req, res) => {
   const book = await Book.findByIdAndDelete(req.params.id);
   if (!book) {
     res.status(404).json({ message: 'Book not found' });
